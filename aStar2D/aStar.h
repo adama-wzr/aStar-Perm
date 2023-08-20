@@ -7,11 +7,15 @@
 #include<iostream>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 #include<stdbool.h>
 #include<fstream>
 #include<cfloat>
 #include <set>
 
+#define ROW 128
+#define COL 128 
 
 // generate structure to store global information about the domain
 
@@ -58,7 +62,7 @@ int readImage(unsigned char** imageAddress, int* Width, int* Height, int* NumOfC
 	return 0;
 }
 
-void tracePath(domainInfo info,node nodeInfo, int path){
+void tracePath(domainInfo info, node nodeInfo[ROW][COL], int* path){
 	/*
 		tracePath Function:
 		Inputs:
@@ -72,7 +76,7 @@ void tracePath(domainInfo info,node nodeInfo, int path){
 
 	int col = info.xSize - 1;
 	int row;
-	int count;
+	int count = 0;
 
 	for(int i = 0; i<info.ySize; i++){
 		if(nodeInfo[i][col].parentCol != -1 && nodeInfo[i][col].parentRow != -1){
@@ -89,6 +93,7 @@ void tracePath(domainInfo info,node nodeInfo, int path){
 
 	if(info.verbose == true){
 		printf("Tracing Path\n");
+		printf("Row = %d, col = %d\n", nodeInfo[row][col].parentRow, nodeInfo[row][col].parentCol);
 	}
 
 	while(col != 0){
@@ -98,6 +103,7 @@ void tracePath(domainInfo info,node nodeInfo, int path){
 		col = tempCol;
 		path[count*2 + 0] = row;
 		path[count*2 + 1] = col;
+		printf("-> (%d,%d)",row, col);
 		count++;
 	}
 
@@ -124,7 +130,7 @@ int aStarMain(unsigned int* GRID, domainInfo info, int* path){
 	// Declare 2D array of structure type "node"
 	// Node contains information such as parent coordinates, g, h, and f
 
-	node nodeInfo[info.ySize][info.xSize];
+	node nodeInfo[ROW][COL];
 
 	// Initialize all paremeters
 
@@ -168,15 +174,15 @@ int aStarMain(unsigned int* GRID, domainInfo info, int* path){
 
 	while(!openList.empty()){
 		// First step is to pop the fist entry on the list
-		OpenListInfo pop = *openList.begin()
+		OpenListInfo pop = *openList.begin();
 
 		// remove from open list
 		openList.erase(openList.begin());
 
 		// Add to the closed list
-		int row = p.second.first; // first argument of the second pair
-		int col = p.second.second; // second argument of second pair
-		closedList[row][col] = true;
+		int row = pop.second.first; // first argument of the second pair
+		int col = pop.second.second; // second argument of second pair
+		closedList[row*info.xSize + col] = true;
 
 		/*
 			Now we need to generate all 4 successors from the popped cell.
@@ -191,8 +197,8 @@ int aStarMain(unsigned int* GRID, domainInfo info, int* path){
 
 		// Evaluate North
 		
-		float tempCol = col;
-		float tempRow = row;
+		int tempCol = col;
+		int tempRow = row;
 
 		// adjust North for periodic boundary condition
 
@@ -203,16 +209,17 @@ int aStarMain(unsigned int* GRID, domainInfo info, int* path){
 		}
 
 		// check if we reached destination, which is the entire right boundary
-		if(tempCol == info.ySize - 1 && GRID[tempRow*info.xSize + tempCol] != 0){
+		if(tempCol == info.ySize - 1 && GRID[tempRow*info.xSize + tempCol] != 1){
 			nodeInfo[tempRow][tempCol].parentRow = row;
 			nodeInfo[tempRow][tempCol].parentCol = col;
 			if(info.verbose == true){
 				printf("The destination cell was found.\n");
 			}
 			// Call trace path function
+			tracePath(info, nodeInfo, path);
 			foundDest = true;
 			return foundDest;
-		} else if(closedList[tempRow][tempCol] == false && GRID[tempRow*info.xSize + tempCol] == 0) // check if successor is not on closed list and not a solid wall
+		} else if(closedList[tempRow*info.xSize + tempCol] == false && GRID[tempRow*info.xSize + tempCol] == 0) // check if successor is not on closed list and not a solid wall
 		{
 			gNew = nodeInfo[row][col].g + 1.0;	// cost from moving from last cell to this cell
 			hNew = (info.xSize - 1) - tempCol; // Since entire right boundary is the distance, h is just a count of the number of columns from the right.	
@@ -220,7 +227,7 @@ int aStarMain(unsigned int* GRID, domainInfo info, int* path){
 			// Check if on open list. If yes, update f,g, and h accordingly.
 			// If not, add it to open list.
 			if(nodeInfo[tempRow][tempCol].f == FLT_MAX || nodeInfo[tempRow][tempCol].f > fNew){
-				openList.insert(std::make_pair(fNew, std:make_pair(tempRow, tempCol)));
+				openList.insert(std::make_pair(fNew, std::make_pair(tempRow, tempCol)));
 				nodeInfo[tempRow][tempCol].f = fNew;
 				nodeInfo[tempRow][tempCol].g = gNew;
 				nodeInfo[tempRow][tempCol].h = hNew;
@@ -244,16 +251,17 @@ int aStarMain(unsigned int* GRID, domainInfo info, int* path){
 		}
 
 		// check if we reached destination, which is the entire right boundary
-		if(tempCol == info.ySize - 1 && GRID[tempRow*info.xSize + tempCol] != 0){
+		if(tempCol == info.ySize - 1 && GRID[tempRow*info.xSize + tempCol] != 1){
 			nodeInfo[tempRow][tempCol].parentRow = row;
 			nodeInfo[tempRow][tempCol].parentCol = col;
 			if(info.verbose == true){
 				printf("The destination cell was found.\n");
 			}
 			// Call trace path function
+			tracePath(info, nodeInfo, path);
 			foundDest = true;
 			return foundDest;
-		} else if(closedList[tempRow][tempCol] == false && GRID[tempRow*info.xSize + tempCol] == 0) // check if successor is not on closed list and not a solid wall
+		} else if(closedList[tempRow*info.xSize + tempCol] == false && GRID[tempRow*info.xSize + tempCol] == 0) // check if successor is not on closed list and not a solid wall
 		{
 			gNew = nodeInfo[row][col].g + 1.0;	// cost from moving from last cell to this cell
 			hNew = (info.xSize - 1) - tempCol; // Since entire right boundary is the distance, h is just a count of the number of columns from the right.	
@@ -261,7 +269,7 @@ int aStarMain(unsigned int* GRID, domainInfo info, int* path){
 			// Check if on open list. If yes, update f,g, and h accordingly.
 			// If not, add it to open list.
 			if(nodeInfo[tempRow][tempCol].f == FLT_MAX || nodeInfo[tempRow][tempCol].f > fNew){
-				openList.insert(std::make_pair(fNew, std:make_pair(tempRow, tempCol)));
+				openList.insert(std::make_pair(fNew, std::make_pair(tempRow, tempCol)));
 				nodeInfo[tempRow][tempCol].f = fNew;
 				nodeInfo[tempRow][tempCol].g = gNew;
 				nodeInfo[tempRow][tempCol].h = hNew;
@@ -277,16 +285,17 @@ int aStarMain(unsigned int* GRID, domainInfo info, int* path){
 			tempCol = col + 1;
 
 			// check if we reached destination, which is the entire right boundary
-			if(tempCol == info.ySize - 1 && GRID[tempRow*info.xSize + tempCol] != 0){
+			if(tempCol == info.ySize - 1 && GRID[tempRow*info.xSize + tempCol] != 1){
 				nodeInfo[tempRow][tempCol].parentRow = row;
 				nodeInfo[tempRow][tempCol].parentCol = col;
 				if(info.verbose == true){
 					printf("The destination cell was found.\n");
 				}
 				// Call trace path function
+				tracePath(info, nodeInfo, path);
 				foundDest = true;
 				return foundDest;
-			} else if(closedList[tempRow][tempCol] == false && GRID[tempRow*info.xSize + tempCol] == 0) // check if successor is not on closed list and not a solid wall
+			} else if(closedList[tempRow*info.xSize + tempCol] == false && GRID[tempRow*info.xSize + tempCol] == 0) // check if successor is not on closed list and not a solid wall
 			{
 				gNew = nodeInfo[row][col].g + 1.0;	// cost from moving from last cell to this cell
 				hNew = (info.xSize - 1) - tempCol; // Since entire right boundary is the distance, h is just a count of the number of columns from the right.	
@@ -294,7 +303,7 @@ int aStarMain(unsigned int* GRID, domainInfo info, int* path){
 				// Check if on open list. If yes, update f,g, and h accordingly.
 				// If not, add it to open list.
 				if(nodeInfo[tempRow][tempCol].f == FLT_MAX || nodeInfo[tempRow][tempCol].f > fNew){
-					openList.insert(std::make_pair(fNew, std:make_pair(tempRow, tempCol)));
+					openList.insert(std::make_pair(fNew, std::make_pair(tempRow, tempCol)));
 					nodeInfo[tempRow][tempCol].f = fNew;
 					nodeInfo[tempRow][tempCol].g = gNew;
 					nodeInfo[tempRow][tempCol].h = hNew;
@@ -311,16 +320,17 @@ int aStarMain(unsigned int* GRID, domainInfo info, int* path){
 			tempCol = col;
 
 			// check if we reached destination, which is the entire right boundary
-			if(tempCol == info.ySize - 1 && GRID[tempRow*info.xSize + tempCol] != 0){
+			if(tempCol == info.ySize - 1 && GRID[tempRow*info.xSize + tempCol] != 1){
 				nodeInfo[tempRow][tempCol].parentRow = row;
 				nodeInfo[tempRow][tempCol].parentCol = col;
 				if(info.verbose == true){
 					printf("The destination cell was found.\n");
 				}
 				// Call trace path function
+				tracePath(info,nodeInfo, path);
 				foundDest = true;
 				return foundDest;
-			} else if(closedList[tempRow][tempCol] == false && GRID[tempRow*info.xSize + tempCol] == 0) // check if successor is not on closed list and not a solid wall
+			} else if(closedList[tempRow*info.xSize + tempCol] == false && GRID[tempRow*info.xSize + tempCol] == 0) // check if successor is not on closed list and not a solid wall
 			{
 				gNew = nodeInfo[row][col].g + 1.0;	// cost from moving from last cell to this cell
 				hNew = (info.xSize - 1) - tempCol; // Since entire right boundary is the distance, h is just a count of the number of columns from the right.	
@@ -328,7 +338,7 @@ int aStarMain(unsigned int* GRID, domainInfo info, int* path){
 				// Check if on open list. If yes, update f,g, and h accordingly.
 				// If not, add it to open list.
 				if(nodeInfo[tempRow][tempCol].f == FLT_MAX || nodeInfo[tempRow][tempCol].f > fNew){
-					openList.insert(std::make_pair(fNew, std:make_pair(tempRow, tempCol)));
+					openList.insert(std::make_pair(fNew, std::make_pair(tempRow, tempCol)));
 					nodeInfo[tempRow][tempCol].f = fNew;
 					nodeInfo[tempRow][tempCol].g = gNew;
 					nodeInfo[tempRow][tempCol].h = hNew;

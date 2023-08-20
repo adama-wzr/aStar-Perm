@@ -9,10 +9,10 @@ int main(int argc, char const *argv[])
 
 	char filename[100];
 
-	sprintf(filename,"00004.jpg");
+	sprintf(filename,"00009.jpg");
 
 	int width, height, channel;
-	bool status;
+	bool status = false;
 
 	unsigned char *targetData;
 
@@ -21,10 +21,6 @@ int main(int argc, char const *argv[])
 	if(verbose == true){
 		printf("Target Image = %s\n", filename);
 		printf("Width = %d, Height = %d, Channels = %d\n", width, height, channel);
-	}
-
-	for(int i = 0; i<10; i++){
-		printf("i = %d, targetData = %d\n", i, targetData[i]);
 	}
 
 	// Can't currently read RGB, return error if image is not grayscale
@@ -57,23 +53,35 @@ int main(int argc, char const *argv[])
 		}
 	}
 
-	// Free original image allocation
+	// Free original image allocation if we don't need it anymore
 
-	free(targetData);
+	if(saveImg == false){
+		free(targetData);
+	}
 
 	// Search
 
-	int *path = (int)malloc(sizeof(int)*info.xSize*info.ySize*2);
+	int *path = (int*)malloc(sizeof(int)*info.xSize*info.ySize*2);
 
 	memset(path, -1, sizeof(path));
 
 	status = aStarMain(Grid, info, path);
 
-	if(info.verbose == true || status = true){
-		printf("Path Found!\n");
-	} else if(info.verbose == true || status = false){
-		printf("No path found!\n");
+	if(saveImg == true){
+		for(int i = 0; i<info.xSize*info.ySize; i++){
+			if(path[i*2 + 0] != -1 && path[i*2 + 1] != -1){
+				int row = path[i*2 + 0];
+				int col = path[i*2 + 1];
+				targetData[row*info.xSize + col] = 127;
+			} else{
+				break;
+			}
+		}
+		stbi_write_jpg("pathTest.jpg", info.xSize, info.ySize, 1, targetData, 100);
+		free(targetData);
 	}
+
+	free(path);
 
 	return 0;
 

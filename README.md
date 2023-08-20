@@ -1,6 +1,10 @@
 # aStar-Perm
 a* algorithm for detecting if there possible paths between the left and right side of a given domain.
 
+To compile simply use g++:
+
+g++ aStar.cpp -lm
+
 The code presented here is a modification from this algorithm: https://www.geeksforgeeks.org/a-search-algorithm/
 
 The key differences are:
